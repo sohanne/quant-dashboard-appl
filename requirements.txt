@@ -7,3 +7,4 @@ python-dotenv
 yfinance
 plotly
 streamlit-autorefresh
+plotly>=5
