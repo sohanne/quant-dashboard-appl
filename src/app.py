@@ -12,7 +12,7 @@ def get_aapl_price_finnhub(api_key):
     """
     url = "https://finnhub.io/api/v1/quote"
     params = {"symbol": "AAPL", "token": api_key}
-    r = requests.get(url, params=params, timeout=10)
+    r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     data = r.json()
 

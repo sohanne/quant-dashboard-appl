@@ -4,6 +4,7 @@ set -euo pipefail
 DATA_FILE="data/aapl_prices.csv"
 REPORT_DIR="reports"
 
+# Date du jour (local machine)
 TODAY="$(date +%F)"
 REPORT_FILE="${REPORT_DIR}/report_${TODAY}.txt"
 
@@ -14,6 +15,8 @@ if [ ! -f "${DATA_FILE}" ]; then
   exit 1
 fi
 
+# On enlève l'entête (ligne 1) et on garde uniquement les lignes du CSV
+# Format attendu: timestamp_utc,price
 LINES_COUNT="$(tail -n +2 "${DATA_FILE}" | wc -l | tr -d ' ')"
 
 if [ "${LINES_COUNT}" -eq 0 ]; then
@@ -21,12 +24,15 @@ if [ "${LINES_COUNT}" -eq 0 ]; then
   exit 1
 fi
 
+# Premier prix et dernier prix (dans le fichier)
 FIRST_PRICE="$(tail -n +2 "${DATA_FILE}" | head -n 1 | cut -d',' -f2)"
 LAST_PRICE="$(tail -n 1 "${DATA_FILE}" | cut -d',' -f2)"
 
+# Min / Max sur la colonne price (trie numérique)
 MIN_PRICE="$(tail -n +2 "${DATA_FILE}" | cut -d',' -f2 | sort -n | head -n 1)"
 MAX_PRICE="$(tail -n +2 "${DATA_FILE}" | cut -d',' -f2 | sort -n | tail -n 1)"
 
+# Variation en % (via awk)
 CHANGE_PCT="$(awk -v first="${FIRST_PRICE}" -v last="${LAST_PRICE}" 'BEGIN {
   if (first == 0) { print "NA"; exit }
   printf "%.4f", ((last - first) / first) * 100
