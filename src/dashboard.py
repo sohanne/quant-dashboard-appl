@@ -136,9 +136,8 @@ if len(s) < max(10, mom_window + 2):
     st.warning("Pas assez de points après resampling / pour la fenêtre momentum. Réduis N ou choisis une périodicité plus fine.")
     st.stop()
 
-# -----------------------
+
 # Returns & strategies
-# -----------------------
 ret = s.pct_change().fillna(0.0)
 
 # Buy & Hold
@@ -244,7 +243,7 @@ fig.update_yaxes(tickformat=".0%", row=2, col=1)
 fig.update_yaxes(range=[-0.05, 1.05], row=3, col=1)
 
 st.subheader("Comparaison visuelle des stratégies")
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 st.subheader("Métriques comparatives")
 st.dataframe(fmt, width="stretch")
