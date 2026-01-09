@@ -1,13 +1,15 @@
 #!/bin/bash
 set -e
 
-# Go to repo root
+# Go to repository root
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_DIR"
 
-# Activate venv if present (Linux path)
+# Activate virtual environment if present (Linux)
 if [ -f "venv/bin/activate" ]; then
   source venv/bin/activate
 fi
 
-python -m src.portfolio.daily_report
+# Run daily portfolio report
+python -m portfolio.daily_report
+
