@@ -3,38 +3,49 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from streamlit_autorefresh import st_autorefresh
+
 st.set_page_config(page_title="Quant Dashboard - AAPL", layout="wide")
 
-# Force refresh navigateur toutes les 5 minutes (300s)
-st.markdown("<meta http-equiv='refresh' content='300'>", unsafe_allow_html=True)
+# Auto-refresh Streamlit (sans recharger toute la page HTML)
+st_autorefresh(interval=300_000, key="refresh")  # 5 minutes
 
 st.title("Quant Dashboard - AAPL")
 
-csv_path = os.path.join("data", "aapl_prices.csv")
+# Chemins absolus (robuste même si lancé depuis un autre dossier)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+csv_path = os.path.join(BASE_DIR, "data", "aapl_prices.csv")
+
+
+@st.cache_data(ttl=300)
+def load_prices(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    required_cols = {"timestamp_utc", "price"}
+    if not required_cols.issubset(set(df.columns)):
+        raise ValueError(f"CSV invalide. Attendu: {required_cols}, reçu: {set(df.columns)}")
+
+    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True, errors="coerce")
+    df["price"] = pd.to_numeric(df["price"], errors="coerce")
+    df = df.dropna(subset=["timestamp_utc", "price"]).copy()
+
+    # Dédupe + tri (important si history + cron écrivent)
+    df = df.drop_duplicates(subset=["timestamp_utc"]).sort_values("timestamp_utc")
+    return df
+
+
 if not os.path.exists(csv_path):
-    st.error("Pas de données encore. Attends la collecte cron (toutes les 5 min).")
+    st.error("Pas de données encore. Lance `python -u src/app.py history` puis attends cron.")
     st.stop()
 
-# Load data robustly
 try:
-    df = pd.read_csv(csv_path)
+    df = load_prices(csv_path)
 except Exception as e:
     st.error(f"Impossible de lire le CSV: {e}")
     st.stop()
 
-required_cols = {"timestamp_utc", "price"}
-if not required_cols.issubset(set(df.columns)):
-    st.error(f"CSV invalide. Colonnes attendues: {required_cols}, reçu: {set(df.columns)}")
-    st.stop()
-
-df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True, errors="coerce")
-df = df.dropna(subset=["timestamp_utc", "price"]).copy()
-df["price"] = pd.to_numeric(df["price"], errors="coerce")
-df = df.dropna(subset=["price"]).sort_values("timestamp_utc")
-
 if len(df) < 2:
     st.warning("Pas assez de points (min 2) pour calculer des rendements/stratégies.")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
     st.stop()
 
 df = df.set_index("timestamp_utc")
@@ -68,12 +79,12 @@ if strategy == "Buy & Hold":
 else:
     # Momentum: on investit si la perf sur N périodes précédentes est > 0
     mom = s.pct_change(mom_window)
-    position = (mom.shift(1) > 0).astype(float)  # shift(1) pour éviter d'utiliser l'info du futur
+    position = (mom.shift(1) > 0).astype(float)  # éviter look-ahead
     strat_ret = (position * ret).fillna(0.0)
 
 # Equity curve (cumulative value)
 equity = (1.0 + strat_ret).cumprod()
-equity_value = equity * float(s.iloc[0])  # valeur en "prix", démarre au même niveau que la première valeur du prix
+equity_value = equity * float(s.iloc[0])  # démarre au même niveau que le prix
 
 # Metrics helpers
 def max_drawdown(series: pd.Series) -> float:
@@ -82,7 +93,7 @@ def max_drawdown(series: pd.Series) -> float:
     return float(dd.min())
 
 def infer_periods_per_year(index: pd.DatetimeIndex) -> float:
-    # approx basé sur le pas médian (fonctionne même si on collecte 24/7)
+    # approx basé sur le pas médian (fonctionne même si collecte 24/7)
     diffs = index.to_series().diff().dropna().dt.total_seconds()
     if len(diffs) == 0:
         return 0.0
@@ -98,8 +109,6 @@ std_r = float(strat_ret.std(ddof=0))
 sharpe = (mean_r / std_r * np.sqrt(ppy)) if (std_r > 0 and ppy > 0) else float("nan")
 tot_return = float(equity.iloc[-1] - 1.0)
 mdd = max_drawdown(equity)
-
-# Vol annualisée approx
 vol = (std_r * np.sqrt(ppy)) if (std_r > 0 and ppy > 0) else float("nan")
 
 # Header KPIs
@@ -109,9 +118,13 @@ last_price = float(s.iloc[-1])
 k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("Dernier prix AAPL", f"{last_price:.4f}")
 k2.metric("Dernier timestamp (UTC)", str(last_ts))
-k3.metric("Nb points", str(len(s)))
+k3.metric("Nb points (après périodicité)", str(len(s)))
 k4.metric("Total return (strat)", f"{tot_return*100:.2f}%")
 k5.metric("Max drawdown", f"{mdd*100:.2f}%")
+
+# Petite aide debug si le prix ne bouge pas
+if s.nunique() <= 2:
+    st.info("Le prix bouge très peu sur la fenêtre affichée → retour/vol/Sharpe peuvent rester faibles.")
 
 st.caption(
     "Note: Sharpe/vol annualisés = approximation car la collecte se fait en continu (y compris hors marché)."
@@ -121,7 +134,7 @@ m1, m2 = st.columns(2)
 m1.metric("Sharpe (approx)", "—" if np.isnan(sharpe) else f"{sharpe:.2f}")
 m2.metric("Vol annualisée (approx)", "—" if np.isnan(vol) else f"{vol*100:.2f}%")
 
-# Main chart: raw price + strategy cumulative value (2 curves)
+# Main chart
 plot_df = pd.DataFrame(
     {
         "Price (raw)": s,
@@ -141,4 +154,6 @@ tail_df = pd.DataFrame(
         "equity_value": equity_value,
     }
 ).tail(30)
-st.dataframe(tail_df, use_container_width=True)
+st.dataframe(tail_df, width="stretch")
+
+st.caption(f"Fichier utilisé: {csv_path}")
