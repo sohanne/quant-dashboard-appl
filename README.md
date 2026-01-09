@@ -1,130 +1,89 @@
-# AAPL Dashboard (Projet Git / Linux / Python)
+# Quant Dashboard — AAPL (Quant A) + Portfolio (Quant B)
 
-## Quant A
-
-## Quant A
-
-## Objectif
-Mettre en place une mini “pipeline quant” autour d’AAPL :
-- collecte de prix intraday automatiquement (cron)
-- stockage dans un CSV
-- dashboard Streamlit interactif (stratégies + métriques)
+Mini pipeline “quant” déployée sur une VM AWS (Ubuntu) :
+- collecte automatique de prix
+- stockage CSV
+- dashboard Streamlit (stratégies + métriques)
+- module portfolio multi-actifs (Quant B)
 - report quotidien automatisé
+
+---
 
 ## Liens
 - Repo : https://github.com/sohanne/quant-dashboard-appl
-- Dashboard : http://ec2-35-180-98-225.eu-west-3.compute.amazonaws.com:8501/
-- SSH VM :
-  ```powershell
-  ssh -i C:\Users\sohan\.ssh\aws.pem ubuntu@ec2-35-180-98-225.eu-west-3.compute.amazonaws.com
+- Dashboard (EC2) : http://35.180.98.225:8501  
+  ➜ Le module **Portfolio (Quant B)** est accessible via **la sidebar Streamlit** (page “Portfolio”).
 
-## Données
-- Actif principal : AAPL (Apple)
-- Bootstrap historique (one-shot) : Yahoo Finance via yfinance (python src/app.py history)
-- Collecte live (toutes les 5 minutes) : Finnhub API (python src/app.py once via cron)
-- Fichier de données : data/aapl_prices.csv (colonnes : timestamp_utc, price)
+---
+
+## Données & sources
+### Quant A — AAPL intraday
+- Actif : AAPL
+- Bootstrap historique : Yahoo Finance via `yfinance`  
+  Commande : `python -u src/app.py history`
+- Collecte live : Finnhub API toutes les 5 minutes (cron)  
+  Commande : `python src/app.py once`
+- Fichier de données : `data/aapl_prices.csv` (colonnes : `timestamp_utc`, `price`)
+
+### Quant B — Portfolio multi-actifs
+- Données marché : Yahoo Finance via `yfinance`
+- Les prix sont téléchargés à la demande dans le dashboard (pas stockés dans `data/aapl_prices.csv`).
+
+---
 
 ## Structure du repo
-- src/app.py : collecte (once/loop) + bootstrap historique (history)
-- src/dashboard.py : dashboard Streamlit (périodicité, stratégies, métriques)
-- scripts/ : scripts Linux (report quotidien)
-- data/ : CSV de prix (local/VM)
-- reports/ : logs + reports (fetch.log, streamlit.log, report quotidien…)
+- `src/app.py` : collecte AAPL (once/loop) + bootstrap historique (history)
+- `src/dashboard.py` : page Streamlit principale (Quant A)
+- `src/pages/1_Portfolio.py` : page Streamlit secondaire (Quant B) (multipage)
+- `src/ui/portfolio_page.py` : UI Portfolio Quant B
+- `src/portfolio/` : backtest + métriques + plots (Quant B)
+- `scripts/` : scripts Linux (report quotidien)
+- `data/` : CSV AAPL (local/VM)
+- `reports/` : logs + reports (`fetch.log`, `streamlit.log`, reports…)
 
-## API Key (ne pas commiter)
-Le mode live utilise Finnhub :
+---
 
-- à définir sur la machine d’exécution via .env ou variable d’environnement :
-    - FINNHUB_API_KEY=...
+## Requirements
+Voir `requirements.txt` :
+- streamlit
+- streamlit-autorefresh
+- pandas, numpy
+- requests
+- python-dotenv
+- yfinance
+- plotly
+
+---
+
+## API key (ne pas commiter)
+Le mode live (Quant A) utilise Finnhub :
+- définir `FINNHUB_API_KEY` via `.env` ou variable d’environnement sur la VM.
+
+Exemple `.env` (sur la VM) :
+FINNHUB_API_KEY=xxxx
+
+---
 
 ## Usage (local)
-- 1 mesure : `python src/app.py once`
-- refresh 5 min : `python src/app.py loop`
-- Bootstrap historique :`python src/app.py history`
-
-### Déploiement sur VM AWS(Ubuntu)
-- Connexion SSH: `ssh -i ~/.ssh/aws.pem ubuntu@ec2-35-180-98-225.eu-west-3.compute.amazonaws.com`
-- Récupération du projet: 
-`cd /home/ubuntu/quant-dashboard-appl`
-`git pull`
-- Activer la venv + installer les dépendances: 
-`source .venv/bin/activate`
-`pip install -r requirements.txt`
-- Bootstrap historique :
-`python -u src/app.py history`
-`wc -l data/aapl_prices.csv`
-- Lancer Streamlit:
-`pkill -f streamlit || true`
-`nohup /home/ubuntu/quant-dashboard-appl/.venv/bin/streamlit run /home/ubuntu/quant-dashboard-appl/src/dashboard.py \`
-  `--server.address 0.0.0.0 --server.port 8501 \`
-  `> /home/ubuntu/quant-dashboard-appl/reports/streamlit.log 2>&1 &`
-
-### Cron (collecte automatique + report)
-Collecte toutes les 5 minutes + report quotidien: `crontab -l`
-Exemples utilisés :
-- */5 * * * * : collecte AAPL toutes les 5 minutes → `reports/fetch.log`
-- 0 20 * * * : report quotidien → `reports/cron.log`
-
-### Dashboard (Stratégie +métriques)
-Le dashboard permet: 
-- choix périodicité : Raw / 15min / 1H / 1D
-- choix stratégie : Buy & Hold / Momentum (window)
-- métriques : total return, max drawdown, volatilité annualisée (approx), Sharpe (approx)
-- auto-refresh toutes les 5 minutes
-
-Astuce : pour voir un signal plus vite :
-- stratégie = Momentum
-- window = 3 ou 5
-- périodicité = Raw
-
-### Debug/correction (incident cron)
-- Symptôme :
-`reports/fetch.log` indiquait des écritures `[OK]` mais le fichier `data/aapl_prices.csv` du projet ne se remplissait pas.
-
-- Cause :
-cron exécute le script avec un répertoire courant différent → les chemins relatifs écrivaient dans `/home/ubuntu/` au lieu du repo.
-
-- Fix :
-calcul d’un `BASE_DIR` à partir de `__file__` et écriture en chemin absolu dans :
-`/home/ubuntu/quant-dashboard-appl/data/aapl_prices.csv`
-
-- Preuve :
-à partir de `2026-01-09T14:05:02+00:00`, le log indique l’écriture dans
-`/home/ubuntu/quant-dashboard-appl/data/aapl_prices.csv`
-
-
-## Quant B — Portfolio Module
-
-The Quant B module implements a multi-asset portfolio analysis and backtesting tool.
-It allows users to build, analyze and monitor diversified portfolios using historical market data.
-
-### Features
-- Selection of at least three financial assets
-- Equal-weight or custom-weight portfolio allocation
-- Portfolio backtesting with periodic rebalancing (weekly, monthly, quarterly)
-- Performance metrics:
-  - Annualized return
-  - Annualized volatility
-  - Sharpe ratio
-  - Maximum drawdown
-  - Diversification effect
-- Asset correlation matrix
-- Interactive visualizations (prices, cumulative performance)
-- Automated daily portfolio reports exported as CSV files
-
-### Daily Portfolio Report
-In addition to the live Streamlit dashboard, the Quant B module includes an automated daily portfolio reporting tool.
-Dashboard : https://quant-dashboard-appl-portfolio.streamlit.app/
-The report can also be generated from the command line:
 ```bash
-python -m src.portfolio.daily_report 
-```
+# venv + deps
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-The report is saved in the reports/ directory and includes key portfolio performance metrics.
+# bootstrap historique AAPL
+python -u src/app.py history
 
-### Data Source
-Market data is retrieved using Yahoo Finance via the yfinance Python library.
+# une mesure Finnhub
+python src/app.py once
 
-### Academic Context
-This module was developed independently as part of the Quant B assignment and later integrated into a single Streamlit dashboard with the Quant A module, as required by the course.
+# dashboard
+streamlit run src/dashboard.py
+
+---
+
+##Déploiement sur VM AWS (Ubuntu)
+
+-Connexion SSH: 
+
 
