@@ -1,46 +1,56 @@
-## Quant B — Portfolio Module
+# AAPL Dashboard (Projet Git/Linux/Python)
 
-The Quant B module implements a multi-asset portfolio analysis and backtesting tool.
-It allows users to build, analyze and monitor diversified portfolios using historical market data.
+## Objectif
+Dashboard interactif qui récupère des données en continu, affiche la valeur actuelle, trace un graphique time series et génère un report quotidien automatisé.
 
-### Features
-- Selection of at least three financial assets
-- Equal-weight or custom-weight portfolio allocation
-- Portfolio backtesting with periodic rebalancing (weekly, monthly, quarterly)
-- Performance metrics:
-  - Annualized return
-  - Annualized volatility
-  - Sharpe ratio
-  - Maximum drawdown
-  - Diversification effect
-- Asset correlation matrix
-- Interactive visualizations (prices, cumulative performance)
-- Automated daily portfolio reports exported as CSV files
+## Données
+- Actif principal : AAPL (Apple)
+- Source : Finnhub (API)
 
-### Daily Portfolio Report
-A daily portfolio report can be generated from the command line:
+## Structure du repo
+- `src/` : code de l'application (dashboard)
+- `scripts/` : scripts Linux (cron, report quotidien)
+- `data/` : données locales (historique)
+- `reports/` : reports journaliers
 
+## API Key (ne pas commiter)
+- Définir `FINNHUB_API_KEY` sur la machine d’exécution
+
+## Cron (report quotidien)
+- Script : `scripts/daily_report.sh`
+- Cron : à compléter (ex : 20:00)
+
+## Usage (local)
+- 1 mesure : `python src/app.py once`
+- refresh 5 min : `python src/app.py loop`
+
+## Report quotidien
+Le script `scripts/daily_report.sh` génère un report texte dans `reports/`.
+
+### Exécution manuelle (sur Linux/VM)
 ```bash
-python -m src.portfolio.daily_report 
-```
+chmod +x scripts/daily_report.sh
+./scripts/daily_report.sh
 
-The report is saved in the reports/ directory and includes key portfolio performance metrics.
+## Run (VM AWS)
 
-### Data Source
-Market data is retrieved using Yahoo Finance via the yfinance Python library.
+### 1) SSH
+ssh -i ~/.ssh/aws.pem ubuntu@<EC2_HOST>
 
-### Academic Context
-This module was developed independently as part of the Quant B assignment and later integrated into a single Streamlit dashboard with the Quant A module, as required by the course.
+### 2) Update repo
+cd /home/ubuntu/quant-dashboard-appl
+git pull
 
+### 3) Activate venv + install deps
+source .venv/bin/activate
+pip install -r requirements.txt
 
+### 4) Bootstrap history (remplit data/aapl_prices.csv)
+python -u src/app.py history
 
-
-
-
-
-
-
-
-
-
+### 5) Run Streamlit
+pkill -f streamlit || true
+nohup /home/ubuntu/quant-dashboard-appl/.venv/bin/streamlit run /home/ubuntu/quant-dashboard-appl/src/dashboard.py \
+  --server.address 0.0.0.0 --server.port 8501 \
+  > /home/ubuntu/quant-dashboard-appl/reports/streamlit.log 2>&1 &
 
