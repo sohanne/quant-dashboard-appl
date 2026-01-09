@@ -129,3 +129,19 @@ def main():
     ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
     append_to_csv(csv_path, ts, price)
     print(f"[OK] {ts} AAPL={price} (écrit dans {csv_path})")
+
+    
+
+if __name__ == "__main__":
+    mode = sys.argv[1].lower() if len(sys.argv) >= 2 else "once"
+
+    if mode == "loop":
+        while True:
+            try:
+                main()
+            except Exception as e:
+                print(f"[ERROR] {e}")
+            print(f"[INFO] next run in 5 minutes ({datetime.now().isoformat(timespec='seconds')})")
+            time.sleep(300)
+    else:
+        main()
