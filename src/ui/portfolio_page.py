@@ -5,9 +5,9 @@ from typing import Dict, List
 import pandas as pd
 import streamlit as st
 
-from src.data.market_data import get_prices
-from src.portfolio.backtest import backtest_portfolio
-from src.portfolio.metrics import (
+from data.market_data import get_prices
+from portfolio.backtest import backtest_portfolio
+from portfolio.metrics import (
     annualized_return,
     annualized_vol,
     correlation_matrix,
@@ -16,7 +16,7 @@ from src.portfolio.metrics import (
     portfolio_daily_returns,
     sharpe_ratio,
 )
-from src.portfolio.plots import plot_corr_heatmap, plot_cum_returns, plot_prices_and_portfolio
+from portfolio.plots import plot_corr_heatmap, plot_cum_returns, plot_prices_and_portfolio
 
 
 @st.cache_data(ttl=300, show_spinner=False)  # 5 minutes
