@@ -1,14 +1,14 @@
 import os
 import csv
-from datetime import datetime, timezone
 import time
 import sys
+from datetime import datetime, timezone
 
 import requests
 from dotenv import load_dotenv
 
 
-def get_aapl_price_finnhub(api_key):
+def get_aapl_price_finnhub(api_key: str) -> float:
     url = "https://finnhub.io/api/v1/quote"
     params = {"symbol": "AAPL", "token": api_key}
     r = requests.get(url, params=params, timeout=30)
@@ -20,81 +20,70 @@ def get_aapl_price_finnhub(api_key):
         raise ValueError(f"Réponse Finnhub inattendue: {data}")
     return float(price)
 
-def bootstrap_history_finnhub(api_key, symbol="AAPL", resolution="5", days=5):
+
+def bootstrap_history_yahoo(symbol: str = "AAPL"):
     """
-    Télécharge un historique intraday via Finnhub (endpoint /stock/candle)
-    et renvoie une liste de tuples (timestamp_iso_utc, close_price).
-    resolution: "1", "5", "15", "30", "60", "D" (selon plan Finnhub)
-    days: nb de jours dans le passé
-    """
-    end_ts = int(datetime.now(timezone.utc).timestamp())
-    start_ts = end_ts - days * 24 * 3600
-
-    url = "https://finnhub.io/api/v1/stock/candle"
-    params = {
-        "symbol": symbol,
-        "resolution": resolution,
-        "from": start_ts,
-        "to": end_ts,
-        "token": api_key,
-    }
-
-    r = requests.get(url, params=params, timeout=30)
-    r.raise_for_status()
-    j = r.json()
-
-    if j.get("s") != "ok":
-        raise ValueError(f"Réponse Finnhub candle inattendue: {j}")
-
-    t = j.get("t", [])
-    c = j.get("c", [])
-    rows = []
-    for ts, close in zip(t, c):
-        dt = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(timespec="seconds")
-        rows.append((dt, float(close)))
-
-    if not rows:
-        raise ValueError("Finnhub candle: aucune donnée retournée.")
-    return rows
-
-
-def bootstrap_history_yahoo(symbol="AAPL", interval="5m", period="5d"):
-    """
-    Télécharge un historique intraday via Yahoo (yfinance) et renvoie
-    une liste de tuples (timestamp_iso_utc, close_price).
+    Bootstraps intraday history from Yahoo Finance via yfinance.
+    Tries to get a lot of points:
+      - 1m over 7d (max intraday depth)
+      - fallback: 5m over 30d
+    Returns list of (timestamp_iso_utc, close_price).
     """
     import yfinance as yf
 
-    df = yf.download(symbol, interval=interval, period=period, progress=False)
-    if df is None or df.empty:
-        raise RuntimeError("Yahoo history vide (yfinance). Réessaie plus tard.")
+    tries = [
+        {"interval": "1m", "period": "7d"},
+        {"interval": "5m", "period": "30d"},
+    ]
 
-    close = df["Close"].dropna()
+    last_err = None
+    for t in tries:
+        try:
+            df = yf.download(
+                tickers=symbol,
+                period=t["period"],
+                interval=t["interval"],
+                progress=False,
+                auto_adjust=False,
+                prepost=True,
+                threads=False,
+            )
+            if df is None or df.empty:
+                raise RuntimeError(f"Yahoo returned empty df for {t}")
 
-    # Convertit l'index en UTC proprement
-    idx = close.index
-    try:
-        # si tz-naive
-        if getattr(idx, "tz", None) is None:
-            idx = idx.tz_localize("UTC")
-        else:
-            idx = idx.tz_convert("UTC")
-    except Exception:
-        # fallback (rare) : force UTC via pandas
-        import pandas as pd
-        idx = pd.to_datetime(idx, utc=True)
+            # handle Close column (usually "Close")
+            if "Close" not in df.columns:
+                raise RuntimeError(f"Close column not found. columns={df.columns}")
 
-    rows = []
-    for ts, p in zip(idx, close.values):
-        ts_iso = ts.to_pydatetime().astimezone(timezone.utc).isoformat(timespec="seconds")
-        rows.append((ts_iso, float(p)))
+            s = df["Close"].dropna()
+            if s.empty:
+                raise RuntimeError("Close series empty after dropna().")
 
-    if not rows:
-        raise RuntimeError("Yahoo history: aucune ligne construite.")
-    return rows
+            idx = s.index
+            if getattr(idx, "tz", None) is None:
+                idx = idx.tz_localize("UTC")
+            else:
+                idx = idx.tz_convert("UTC")
 
-#Ajoute une ligne (timestamp, price) dans un CSV.
-def append_to_csv(csv_path, timestamp_iso, price):
+            rows = []
+            for dt, close in zip(idx, s.values):
+                dt_iso = dt.to_pydatetime().replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
+                rows.append((dt_iso, float(close)))
+
+            if len(rows) < 100:
+                raise RuntimeError(f"Too few points ({len(rows)}) for {t}, trying fallback...")
+
+            return rows
+
+        except Exception as e:
+            last_err = e
+            continue
+
+    raise RuntimeError(f"Yahoo history failed after fallbacks: {last_err}")
+
+
+
+def append_to_csv(csv_path: str, timestamp_iso: str, price: float):
     file_exists = os.path.exists(csv_path)
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -104,21 +93,22 @@ def append_to_csv(csv_path, timestamp_iso, price):
 
 
 def main():
-    # chemins absolus (repo) = robuste en cron
+    # chemins absolus (repo)
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     data_dir = os.path.join(BASE_DIR, "data")
     os.makedirs(data_dir, exist_ok=True)
     csv_path = os.path.join(data_dir, "aapl_prices.csv")
 
-    # Charge .env DU REPO (si présent)
-    dotenv_path = os.path.join(BASE_DIR, ".env")
-    load_dotenv(dotenv_path=dotenv_path)
-
+    # mode CLI
     mode = sys.argv[1].lower() if len(sys.argv) >= 2 else "once"
 
-    # 1) MODE HISTORY : Yahoo intraday (recommandé)
+    # Charge .env (chemin explicite)
+    env_path = os.path.join(BASE_DIR, ".env")
+    load_dotenv(dotenv_path=env_path)
+
+    # MODE HISTORY : Yahoo (pas besoin de FINNHUB_API_KEY) ----
     if mode == "history":
-        rows = bootstrap_history_yahoo(symbol="AAPL", interval="5m", period="5d")
+        rows = bootstrap_history_yahoo("AAPL")  # <= c'est ça le changement clé
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["timestamp_utc", "price"])
@@ -127,12 +117,11 @@ def main():
         print(f"[OK] Yahoo history written: {len(rows)} points -> {csv_path}")
         return
 
-    # 2) MODE ONCE / LOOP : Finnhub quote (dernier prix)
+    # MODE ONCE / LOOP : Finnhub (clé obligatoire ici) ----
     api_key = os.getenv("FINNHUB_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "FINNHUB_API_KEY introuvable.\n"
-            "Sur la VM, crée /home/ubuntu/quant-dashboard-appl/.env avec:\n"
+            "FINNHUB_API_KEY introuvable. Crée un fichier .env à la racine avec:\n"
             "FINNHUB_API_KEY=TA_CLE_ICI"
         )
 
