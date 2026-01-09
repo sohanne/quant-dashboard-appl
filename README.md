@@ -118,7 +118,7 @@ Dashboard : https://quant-dashboard-appl-portfolio.streamlit.app/
 The report can also be generated from the command line:
 ```bash
 python -m src.portfolio.daily_report 
-
+```
 
 The report is saved in the reports/ directory and includes key portfolio performance metrics.
 
