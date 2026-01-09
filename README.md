@@ -18,8 +18,10 @@ It allows users to build, analyze and monitor diversified portfolios using histo
 - Automated daily portfolio reports exported as CSV files
 
 ### Daily Portfolio Report
-A daily portfolio report can be generated from the command line:
+In addition to the live Streamlit dashboard, the Quant B module includes an automated
+daily portfolio reporting tool.
 
+The report can be generated from the command line:
 ```bash
 python -m src.portfolio.daily_report 
 ```
