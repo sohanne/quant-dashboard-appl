@@ -1,5 +1,7 @@
 # AAPL Dashboard (Projet Git/Linux/Python)
 
+## Quant A
+
 ## Objectif
 Dashboard interactif qui récupère des données en continu, affiche la valeur actuelle, trace un graphique time series et génère un report quotidien automatisé.
 
