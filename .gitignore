@@ -205,3 +205,20 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# fichiers temporaires (TD: temp*)
+temp*
+
+# données & rapports générés
+data/*
+reports/*
+
+# secrets
+.env
+
+# python cache
+__pycache__/
+*.pyc
+
+data/
+reports/
