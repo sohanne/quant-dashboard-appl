@@ -5,3 +5,5 @@ numpy
 requests
 python-dotenv
 yfinance
+plotly
+streamlit-autorefresh
