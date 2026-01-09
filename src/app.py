@@ -7,9 +7,6 @@ from dotenv import load_dotenv
 
 
 def get_aapl_price_finnhub(api_key):
-    """
-    Récupère le prix actuel de AAPL via Finnhub (endpoint 'quote').
-    """
     url = "https://finnhub.io/api/v1/quote"
     params = {"symbol": "AAPL", "token": api_key}
     r = requests.get(url, params=params, timeout=30)
@@ -21,11 +18,8 @@ def get_aapl_price_finnhub(api_key):
         raise ValueError(f"Réponse Finnhub inattendue: {data}")
     return float(price)
 
-
+#Ajoute une ligne (timestamp, price) dans un CSV.
 def append_to_csv(csv_path, timestamp_iso, price):
-    """
-    Ajoute une ligne (timestamp, price) dans un CSV.
-    """
     file_exists = os.path.exists(csv_path)
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -48,8 +42,13 @@ def main():
 
     ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    os.makedirs("data", exist_ok=True)
-    csv_path = os.path.join("data", "aapl_prices.csv")
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    data_dir = os.path.join(BASE_DIR, "data")
+    os.makedirs(data_dir, exist_ok=True)
+
+    csv_path = os.path.join(data_dir, "aapl_prices.csv")
+   
     append_to_csv(csv_path, ts, price)
 
     print(f"[OK] {ts} AAPL={price} (écrit dans {csv_path})")
