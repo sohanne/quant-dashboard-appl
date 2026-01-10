@@ -11,8 +11,7 @@ Mini pipeline “quant” déployée sur une VM AWS (Ubuntu) :
 
 ## Liens
 - Repo : https://github.com/sohanne/quant-dashboard-appl
-- Dashboard (EC2) : http://35.180.98.225:8501  
-  ➜ Le module **Portfolio (Quant B)** est accessible via **la sidebar Streamlit** (page “Portfolio”).
+- Dashboard et Portfolio (EC2) : http://35.180.98.225:8501  
 
 ---
 
