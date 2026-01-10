@@ -55,7 +55,7 @@ Voir `requirements.txt` :
 
 ---
 
-## API key (ne pas commiter)
+## API key 
 Le mode live (Quant A) utilise Finnhub :
 - définir `FINNHUB_API_KEY` via `.env` ou variable d’environnement sur la VM.
 
@@ -64,7 +64,7 @@ FINNHUB_API_KEY=xxxx
 
 ---
 
-## Usage (local)
+## Usage
 ```bash
 # venv + deps
 python -m venv .venv
@@ -81,6 +81,8 @@ python src/app.py once
 streamlit run src/dashboard.py
 
 ```
+
+---
 
 
 ##Déploiement sur VM AWS (Ubuntu)
