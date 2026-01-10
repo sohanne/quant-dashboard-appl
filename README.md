@@ -80,6 +80,7 @@ python src/app.py once
 # dashboard
 streamlit run src/dashboard.py
 
+---
 
 ## Déploiement sur VM AWS (Ubuntu)
 
@@ -107,6 +108,7 @@ source .venv/bin/activate
 python -u src/app.py history
 wc -l data/aapl_prices.csv
 
+---
 
 ## Cron (collecte + report)
 Exemple crontab -l sur la VM :
@@ -114,11 +116,19 @@ Exemple crontab -l sur la VM :
 - Collecte AAPL toutes les 5 minutes → log dans reports/fetch.log
 - Report quotidien → log dans reports/cron.log
 
+
+---
+
+
 ## Accès public
 Pour que le site soit accessible à tout le monde :
 
 - AWS EC2 Security Group → Inbound rules :
     - TCP 8501 ouvert à 0.0.0.0/0
+
+
+---
+
 
 
 ## Quant A — Dashboard (stratégies & métriques)
@@ -128,6 +138,9 @@ Fonctionnalités :
 - Buy & Hold vs Momentum (avec window + frais)
 - métriques : total return, max drawdown, vol annualisée (approx), Sharpe (approx), win rate
 - auto-refresh toutes les 5 minutes
+
+
+---
 
 
 ## Quant B — Portfolio Module
@@ -144,6 +157,9 @@ Lancer le report portfolio en CLI
 python -m src.portfolio.daily_report
 
 Le report est sauvegardé reports/(CSV).
+
+
+---
 
 
 ## Debug incident cron (chemins relatifs)
