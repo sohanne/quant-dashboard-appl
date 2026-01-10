@@ -80,10 +80,81 @@ python src/app.py once
 # dashboard
 streamlit run src/dashboard.py
 
----
 
-##Déploiement sur VM AWS (Ubuntu)
+## Déploiement sur VM AWS (Ubuntu)
 
--Connexion SSH: 
+### 1) Connexion SSH
+```bash
+ssh -i ~/.ssh/aws.pem ubuntu@ec2-35-180-98-225.eu-west-3.compute.amazonaws.com
+
+
+### 2) Pull + deps + restart (à faire après chaque merge)
+```bash
+cd /home/ubuntu/quant-dashboard-appl
+
+git switch main
+git pull
+
+source .venv/bin/activate
+pip install -r requirements.txt
+
+sudo systemctl restart streamlit-quant
+sudo systemctl status streamlit-quant --no-pager
+
+### 3) Bootsrap historique
+```bash
+source .venv/bin/activate
+python -u src/app.py history
+wc -l data/aapl_prices.csv
+
+
+## Cron (collecte + report)
+Exemple crontab -l sur la VM :
+
+- Collecte AAPL toutes les 5 minutes → log dans reports/fetch.log
+- Report quotidien → log dans reports/cron.log
+
+## Accès public
+Pour que le site soit accessible à tout le monde :
+
+- AWS EC2 Security Group → Inbound rules :
+    - TCP 8501 ouvert à 0.0.0.0/0
+
+
+## Quant A — Dashboard (stratégies & métriques)
+
+Fonctionnalités :
+- périodicité : Raw / 15min / 1H / 1D
+- Buy & Hold vs Momentum (avec window + frais)
+- métriques : total return, max drawdown, vol annualisée (approx), Sharpe (approx), win rate
+- auto-refresh toutes les 5 minutes
+
+
+## Quant B — Portfolio Module
+
+Fonctionnalités :
+- sélection >= 3 actifs (actions, ETF, crypto)
+- allocation equal-weight ou custom
+- rebalancing : Never / Weekly / Monthly / Quarterly
+- métriques : annualized return, vol, Sharpe, max drawdown, diversification effect
+- heatmap de corrélation + charts Plotly
+
+Lancer le report portfolio en CLI
+```bash
+python -m src.portfolio.daily_report
+
+Le report est sauvegardé reports/(CSV).
+
+
+## Debug incident cron (chemins relatifs)
+
+Problème rencontré :
+- reports/fetch.log affichait [OK] mais data/aapl_prices.csv ne se remplissait pas.
+Cause :
+- cron exécute avec un répertoire courant différent → chemins relatifs écrivaient ailleurs.
+Fix :
+- calcul d’un BASE_DIR à partir de __file__ et écriture en chemin absolu dans :
+/home/ubuntu/quant-dashboard-appl/data/aapl_prices.csv
+
 
 
