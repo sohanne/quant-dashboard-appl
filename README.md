@@ -85,14 +85,14 @@ streamlit run src/dashboard.py
 ---
 
 
-##Déploiement sur VM AWS (Ubuntu)
+## Déploiement sur VM AWS (Ubuntu)
 
-###1) Connexion SSH
+### 1) Connexion SSH
 ```bash
 ssh -i ~/.ssh/aws.pem ubuntu@ec2-35-180-98-225.eu-west-3.compute.amazonaws.com
 ```
 
-###2) Pull + deps + restart (à faire après chaque merge)
+### 2) Pull + deps + restart (à faire après chaque merge)
 cd /home/ubuntu/quant-dashboard-appl
 ```bash
 git switch main
@@ -105,10 +105,10 @@ sudo systemctl restart streamlit-quant
 sudo systemctl status streamlit-quant --no-pager
 ```
 
----
 
 
-###3) Bootstrap historique
+
+### 3) Bootstrap historique
 ```bash
 source .venv/bin/activate
 python -u src/app.py history
