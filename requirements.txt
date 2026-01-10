@@ -1,3 +1,11 @@
+streamlit
+streamlit-autorefresh
+pandas
+numpy
+requests
+python-dotenv
+yfinance
+plotly
 altair==6.0.0
 attrs==25.4.0
 beautifulsoup4==4.14.3
@@ -48,4 +56,5 @@ urllib3==2.6.3
 watchdog==6.0.0
 websockets==15.0.1
 yfinance==1.0
+
 
